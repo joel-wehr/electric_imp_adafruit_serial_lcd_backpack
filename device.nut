@@ -3,41 +3,34 @@ port0.configure(9600, 8, PARITY_NONE, 1, NO_CTSRTS);
 
 class Screen {
     port = null;
-    lines = null;
-    positions = null;
-    red = 0;
-    green = 0;
-    blue = 0;
     constructor(_port) {
         port = _port;
-        lines = ["Initializing...", ""];
-        positions = [0, 0];
     }
-    function set0(line) {
-        lines[0] = line;
-    }
-    
-    function set1(line) {
-        lines[1] = line;
-    }
-    function set_size() {
+    function set_size(_columns, _rows) {
         port.write(0xFE);
         port.write(0xD1);
-        port.write(16);
-        port.write(2);
-        server.log("Set LCD 16x2");
+        port.write(_columns);
+        port.write(_rows);
+        server.log("Set LCD: " + _columns + "x" + _rows);
     }
-    function set_contrast() {
+    function set_contrast(_value) {
         port.write(0xFE);
         port.write(0x50);
-        port.write(200);
-        server.log("Set Contrast = 200");
+        port.write(_value);
+        server.log("Contrast: " + _value);
     }
-    function set_brightness() {
+    function set_brightness(_value) {
         port.write(0xFE);
         port.write(0x99);
-        port.write(255);
-        server.log("Set Brightness = 255(100%)");
+        port.write(_value);
+        server.log("Brightness: " + _value);
+    }
+    function set_color(_red, _green, _blue) {
+        port.write(0xFE);
+        port.write(0xD0);
+        port.write(_red);
+        port.write(_green);
+        port.write(_blue);
     }
     function cursor_off() {
         port.write(0xFE);
@@ -50,93 +43,44 @@ class Screen {
         port.write(0x58);
         server.log("Clear Screen");
     }
-    
+    function autoscroll_on() {
+        port.write(0xFE);
+        port.write(0x51);
+    }
+    function autoscroll_off() {
+        port.write(0xFE);
+        port.write(0x52);
+    }
+    function startup_message() {
+        port.write(0xFE);
+        port.write(0x40);
+        port.write("**Your Startup*******Message****");
+    }
     function cursor_at_line0() {
         port.write(0xFE);
         port.write(0x48);
     }
     function cursor_at_line1() {
         port.write(0xFE);
-        port.write(0x48); // Not sure what position this is.
+        port.write(0x47); 
+        port.write(1);
+        port.write(2);
     }
     function write_string(string) {
         foreach(i, char in string) {
             port.write(char);
         }
-        //server.log("Wrote string.");
-    }
-    function red() {
-        red = 75;
-        port.write(0xFE);
-        port.write(0xD0);
-        port.write(red);
-    }
-    function green() {
-        green = 255;
-        port.write(0xFE);
-        port.write(0xD0);
-        port.write(green);   
-    }
-    function blue() {
-        blue = 255;
-        port.write(0xFE);
-        port.write(0xD0);
-        port.write(blue);
-    }
-    function start() {
-        update_screen();
-    }
-    function update_screen() {
-        imp.wakeup(0.4, update_screen.bindenv(this));
-        
-        cursor_at_line0();
-        display_message(0);
-        
-        cursor_at_line1();
-        display_message(1);
-    }
-    
-    function display_message(idx) {  
-        local message = lines[idx];
-        
-        local start = positions[idx];
-        local end   = positions[idx] + 16;
-        
-    
-        if (end > message.len()) {
-            end = message.len();
-        }
-    
-        local string = message.slice(start, end);
-        for (local i = string.len(); i < 16; i++) {
-            string  = string + " ";
-        }
-    
-        write_string(string);
-    
-        if (message.len() > 16) {
-            positions[idx]++;
-            if (positions[idx] > message.len() - 1) {
-                positions[idx] = 0;
-            }
-        }
     }
 }
-
-imp.configure("Adafruit Serial LCD", [],[]);
+imp.configure("Adafruit Serial LCD Class", [],[]);
     screen <- Screen(port0);
-    screen.set_size();
-    screen.set_contrast();
-    screen.set_brightness();
+    screen.set_size(16, 2);
+    screen.set_contrast(200);
+    screen.set_brightness(255);
+    screen.set_color(255, 20, 0); //Halloween orange
     screen.cursor_off();
     screen.clear_screen();
-    //screen.start();
-    screen.red();
-    //screen.green();
-    //screen.blue();
     screen.cursor_at_line0();
-    //screen.start();
-    //screen.rgb();
-    //screen.set0("Testing......");
-    screen.write_string(format("%ddBm", imp.rssi())); 
-    //screen.write_string("Hello!");
+    screen.write_string(format("Signal: %ddBm", imp.rssi())); 
+    screen.cursor_at_line1();
+    screen.write_string(format("VREF: %.2fV", hardware.voltage()));
